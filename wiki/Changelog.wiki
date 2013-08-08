@@ -1,0 +1,4 @@
+#summary Changelog of the plugin.
+#labels Featured
+
+V 1.0: Inital Release
