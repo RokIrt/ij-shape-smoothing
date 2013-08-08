@@ -1,0 +1,28 @@
+<project name="Shape_Filter_" default="" basedir=".">
+    <description>
+        Shape Smoothing Plugin Build File
+    </description>
+  <property name="src" location="src" />
+  <property name="build" location="bin" />
+  <property name="dist"  location="dist" />
+  <property name="lib.dir"       value="lib"/>
+	 <property name="pluginsDir"  location="$basedir/../../IJ/plugins/" />
+ 
+  <property name="user.name" value="Thorsten Wagner" />
+<target name="main" depends="compress" description="Main target">
+	<echo>
+		Building the .jar file.
+	</echo>
+</target>
+ <target name="compress" depends="" description="generate the distribution">
+ 	<jar jarfile="Shape_Smoothing_.jar">
+ 		<fileset dir="." includes="plugins.config" />
+		<fileset dir="${build}" includes="**/*.*" />
+ 		<zipgroupfileset dir="${lib.dir}" includes="**/*.jar" />
+ 		<manifest>
+ 		 	 	      <attribute name="Built-By" value="${user.name}"/>
+ 		</manifest>
+ 	</jar>
+    <copy file="Shape_Smoothing_.jar" toDir="${pluginsDir}" />
+  </target>
+</project>
