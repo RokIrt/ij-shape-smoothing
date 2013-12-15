@@ -73,7 +73,7 @@ public class ShapeSmoothingUtilTest {
 	
 	@Test
 	public void fourierFilter_PointTest() {		
-		shapeSmoothingUtil.fourierFilter(testImp, newIp, 1, false);
+		
 		
 		// Prüfe, ob die Pixeln auf den Koordinaten der Schwerpunkte der Formen schwarz sind
 		ManyBlobs allBlobs = new ManyBlobs(testImp);
@@ -86,19 +86,22 @@ public class ShapeSmoothingUtilTest {
 			sumXCoord +=centerX;
 			sumYCoord += centerY;
 		}
-		
+		//shapeSmoothingUtil.fourierFilter(testImp, newIp, 1, false);
+		shapeSmoothingUtil.fourierFilter(testImp.getProcessor(), 1, false, false);
 		int sumFourierXCoord = 0;
 		int sumFourierYCoord = 0;
 		for (int x = 0; x < width; x++) {
 			for (int y = 0; y < height; y++) {
-				if (newIp.getPixel(x, y) == 0) {
+				if (testImp.getProcessor().getPixel(x, y) == 0) {
 					sumFourierXCoord += x;
 					sumFourierYCoord += y;
 				}
 			}
 		}
 		int diff = Math.abs(sumFourierXCoord-sumXCoord) + Math.abs(sumFourierYCoord-sumYCoord);
-		assertEquals(0, diff, 3);
+		//Eine Differenz entsteht dadurch, dass die Konturen vor der Fouier Transformation noch transformiert
+		//werden (Äquidistanz). Zur Berechnung des Schwerpunkts über IJBlob aber nicht.
+		assertEquals(0, diff, 6);
 	}
 	
 	@Test
@@ -106,9 +109,10 @@ public class ShapeSmoothingUtilTest {
 		ManyBlobs allBlobsOriginal = new ManyBlobs(testImp);
 		allBlobsOriginal.findConnectedComponents();
 		
-		shapeSmoothingUtil.fourierFilter(testImp, newIp, 2, false);
+	
+		shapeSmoothingUtil.fourierFilter(testImp.getProcessor(), 2, false, false);
 		
-		ManyBlobs allBlobsCircles = new ManyBlobs(new ImagePlus(null, newIp));
+		ManyBlobs allBlobsCircles = new ManyBlobs(testImp);
 		allBlobsCircles.findConnectedComponents();
 		
 		// Prüfen, dass es genauso viele Kreise gibt, wie Figuren
@@ -126,6 +130,22 @@ public class ShapeSmoothingUtilTest {
 		ManyBlobs allBlobs = new ManyBlobs(testImp);
 		allBlobs.findConnectedComponents();	
 		
+		
+		
+		
+		//Das Ergebnis sollte nur mit den Konturen der Originalformen verglichen werden, um Unstimmigkeiten zu vermeiden
+		////shapeSmoothing.duplicateWindow(testIp, "Konturen");
+		ImageProcessor newIp = new ByteProcessor(testImp.getWidth(), testImp.getHeight());	
+		newIp.invert();
+		
+		for (Blob blob: allBlobs) {
+			newIp.drawPolygon(shapeSmoothingUtil.toEquidistantPolygon(blob.getOuterContour()));
+		}
+		ImagePlus newImp = new ImagePlus("", newIp);
+		
+		// Die Konturen an sich sind nicht (immer) skeletiert
+		//IJ.run(newImp, "Skeletonize", "");
+	
 		int maxNumOfContourPoints = 0;
 		for (Blob blob: allBlobs) {
 			int blobsNumOfContourPoints = blob.getOuterContour().npoints;
@@ -133,19 +153,10 @@ public class ShapeSmoothingUtilTest {
 				maxNumOfContourPoints = blobsNumOfContourPoints;
 			}			
 		}
-		
-		shapeSmoothingUtil.fourierFilter(testImp, newIp, maxNumOfContourPoints, false);
-		
-		//Das Ergebnis sollte nur mit den Konturen der Originalformen verglichen werden, um Unstimmigkeiten zu vermeiden
-		ImagePlus newImp = shapeSmoothing.duplicateWindow(testIp, "Konturen");
-		ImageProcessor newIp = newImp.getProcessor();		
-		for (Blob blob: allBlobs) {
-			newIp.drawPolygon(blob.getOuterContour());
-		}
-		// Die Konturen an sich sind nicht (immer) skeletiert
-		IJ.run(newImp, "Skeletonize", "");
-		
-		assertTrue(testImageEquality(newImp.getProcessor().getIntArray(), newIp.getIntArray()));
+		shapeSmoothingUtil.setDrawOnlyContours(true);
+		shapeSmoothingUtil.fourierFilter(testImp.getProcessor(), (double)maxNumOfContourPoints, false, false);
+
+		assertTrue(testImageEquality(testImp.getProcessor().getIntArray(), newIp.getIntArray()));
 	}
 
 }

@@ -1,13 +1,23 @@
 package de.biomedical_imaging.ij.shapeSmoothing;
 
+import ij.IJ;
 import ij.ImagePlus;
+import ij.WindowManager;
 import ij.blob.Blob;
 import ij.blob.ManyBlobs;
+import ij.gui.PolygonRoi;
+import ij.gui.Roi;
+import ij.measure.ResultsTable;
+import ij.plugin.frame.RoiManager;
+import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
+import java.awt.Color;
+import java.awt.Frame;
 import java.awt.Polygon;
 import java.util.Vector;
 
+import de.biomedical_imaging.ij.shapeSmoothingPlugin.Shape_Smoothing;
 import de.biomedical_imaging.ij.shapeSmoothingSlow.ComplexNumber;
 import de.biomedical_imaging.ij.shapeSmoothingSlow.MyUsefulMethods;
 
@@ -20,28 +30,68 @@ import edu.emory.mathcs.jtransforms.fft.DoubleFFT_1D;
  */
 public class ShapeSmoothingUtil {	
 
-	private boolean onlyContours = false;;
+	private boolean onlyContours = false;
+	private boolean blackBackground = false;
 	/**
 	 * Fourier-Hintransformation, Filterung der Fourierdeskriptoren (FD) und Fourier-Rücktransformation
 	 * für alle Blobs auf einem Bild (referenziert mittels imp). 
 	 * 
-	 * @param imp {@link ImagePlus} des Bildes auf dem nach Blobs gesucht wird
-	 * @param newIp {@link ImageProcessor} des Bildes, worauf rücktransformierte Blobs gezeichnet werden
+	 * @param imp {@link ImagePlus} Das Bild auf dem nach Blobs gesucht wird. Vorsicht, Inhalte werden überschrieben!
 	 * @param thresholdValue Schwellenwert für die Filterung der FDs - es gibt an, wie viele FDs beibehalten werden (absolut oder prozentual)
 	 * @param thresholdIsPercentual Gibt an, ob thresholdValue eine prozentuale Angabe ist, oder ob es bereits die Anzahl der zu behaltenden FDs enthält 
+	 * @param output Ausgabe der Descriptoren in Result Table
 	 */
-	public void fourierFilter(ImagePlus imp, ImageProcessor newIp, int thresholdValue, boolean thresholdIsPercentual) {
+	
+	public void fourierFilter(ImageProcessor ip, double thresholdValue, boolean thresholdIsPercentual, boolean output) {
 		// Konturpunkte erfassen	
+		ImagePlus imp = new ImagePlus("", ip);
 		ManyBlobs allBlobs = new ManyBlobs(imp); // Extended ArrayList
+		if(blackBackground){
+			allBlobs.setBackground(0);
+		}else {
+			allBlobs.setBackground(1);
+			
+		}
 		allBlobs.findConnectedComponents(); // Formen erkennen	
 		
-		for (Blob blob: allBlobs) {
-			fourierEngine(blob.getOuterContour(), thresholdValue, thresholdIsPercentual, newIp);
+		if(blackBackground){
+			ip.setColor(Color.black);
+		}else{
+			ip.setColor(Color.white);
 		}
+		ip.fill();
+		ResultsTable rt = new ResultsTable();
+		rt.setPrecision(5);
+		int c = 1;
+		for (Blob blob: allBlobs) {
+			double[] coef;
+			coef = fourierEngine(blob.getOuterContour(), thresholdValue, thresholdIsPercentual, ip,output);
+			if(output){
+				double f0 = Math.sqrt(Math.pow(coef[2],2)+Math.pow(coef[3],2));
+				rt.incrementCounter();
+				rt.addValue("Blob Label", blob.getLabel());
+				for(int i = 0; i< coef.length-1; i=i+2){
+					
+					rt.showRowNumbers(false);
+					
+					//rt.addValue("R", coef[i]);
+				//	rt.addValue("I", coef[i+1]);
+					rt.addValue("|F" +i/2+ "|", Math.sqrt(Math.pow(coef[i],2)+Math.pow(coef[i+1],2))/f0);
+				}
+				rt.show("Fourier Descriptors");
+			}
+			c++;
+		}
+		
+	
 	}
 	
 	public void setDrawOnlyContours(boolean b){
 		onlyContours = b;
+	}
+	
+	public void setBlackBackground(boolean b){
+		blackBackground = b;
 	}
 	
 	/**
@@ -54,9 +104,11 @@ public class ShapeSmoothingUtil {
 	 * @param thresholdIsPercentual Gibt an, ob thresholdValue eine prozentuale Angabe ist, oder ob es bereits die Anzahl der zu behaltenden FDs enthält 
 	 * @param ip {@link ImageProcessor} des Bildes, worauf das rücktransformierte Blob gezeichnet wird
 	 */
-	private void fourierEngine(Polygon contourPolygon, int thresholdValue, boolean thresholdIsPercentual, ImageProcessor ip) {
+	int objectCounter = 1;
+	private double[] fourierEngine(Polygon contourPolygon, double thresholdValue, boolean thresholdIsPercentual, ImageProcessor ip, boolean output) {
 		
-		int numOfContourPoints = contourPolygon.npoints;
+		Polygon equiCont = toEquidistantPolygon(contourPolygon);
+		int numOfContourPoints = equiCont.npoints;
 		
 		if (thresholdIsPercentual) {
 			thresholdValue = (thresholdValue * numOfContourPoints) / 100;
@@ -77,23 +129,29 @@ public class ShapeSmoothingUtil {
 		
 		int j = 0;
 		for(int i = 0; i < numOfContourPoints; i++) {
-			contourPoints[j] = contourPolygon.xpoints[i];
-			contourPoints[j+1] = contourPolygon.ypoints[i];
+			contourPoints[j] = equiCont.xpoints[i];
+			contourPoints[j+1] = equiCont.ypoints[i];
 			j=j+2;
 		}
 		DoubleFFT_1D ft = new DoubleFFT_1D(numOfContourPoints);
+
 				
 		// Fourier-Hintransformation
 		ft.complexForward(contourPoints);		
+		double[] coefficients = new double[(int)thresholdValue*2+1];
 		
-		
+		for(int i = 0; i < (int)thresholdValue*2; i=i+2){
+			coefficients[i] = contourPoints[i];
+			coefficients[i+1] = contourPoints[i+1];
+		}
 		
 		// Filterung	
-		int loopFrom = thresholdValue;
+	
+		int loopFrom = (int)thresholdValue;
 		if (loopFrom % 2 != 0) {
 			loopFrom = loopFrom + 1;
 		}
-		int loopUntil = contourPoints.length - thresholdValue;
+		int loopUntil = contourPoints.length - (int)thresholdValue;
 		if (loopUntil % 2 != 0) {
 			loopUntil = loopUntil + 1;
 		}
@@ -105,8 +163,8 @@ public class ShapeSmoothingUtil {
 			
 		// Rücktransformation
 		ft.complexInverse(contourPoints, true);
-		int[] xpoints = new int[numOfContourPoints];
-		int[] ypoints = new int[numOfContourPoints];
+		int[] xpoints = new int[contourPoints.length/2];
+		int[] ypoints = new int[contourPoints.length/2];
 		
 		j=0;
 		for(int i = 0; i < contourPoints.length; i=i+2) {
@@ -114,13 +172,57 @@ public class ShapeSmoothingUtil {
 			ypoints[j] = (int) Math.round(contourPoints[i+1]);
 			j++;
 		}
-		
+
+		if(blackBackground){
+			//IJ.setForegroundColor(255, 255, 255);
+			ip.setValue(255);
+			
+		}else
+		{
+			ip.setValue(0);
+			//IJ.setForegroundColor(0, 0, 0);
+			
+		}
+		Polygon poly = new Polygon(xpoints, ypoints, j);
 		// Zeichnen
 		if(onlyContours){
-			ip.drawPolygon(new Polygon(xpoints, ypoints, j));
+			ip.drawPolygon(poly);
 		}else{
-			ip.fillPolygon(new Polygon(xpoints, ypoints, j));
+			ip.drawPolygon(poly);
+			ip.fillPolygon(poly);
 		}
+		
+		if(output){
+			Frame frame = WindowManager.getFrame("ROI Manager");
+			if (frame == null)
+				IJ.run("ROI Manager...");
+			frame = WindowManager.getFrame("ROI Manager");
+			RoiManager roiManager = (RoiManager) frame;
+			Roi roi = new PolygonRoi(poly,Roi.POLYGON);
+			roiManager.add(IJ.getImage(), roi,objectCounter);
+			objectCounter++;
+		}
+		
+		return coefficients;
+	}
+	
+	public Polygon toEquidistantPolygon(Polygon pol){
+		Polygon equiPol = new Polygon();
+	
+		for(int i = 0; i < pol.npoints; i++){
+			equiPol.addPoint(pol.xpoints[i], pol.ypoints[i]);
+			int nextPixel = (i+1)==pol.npoints? 1 : i+1;
+			int dx = pol.xpoints[i] - pol.xpoints[nextPixel];
+			int dy = pol.ypoints[i] - pol.ypoints[nextPixel];
+			if((dx == -1 && dy ==-1) || (dx == 1 && dy ==1)){
+				equiPol.addPoint(pol.xpoints[nextPixel],  pol.ypoints[i] );
+			}
+
+			else if((dx == -1 && dy == 1) || (dx == 1 && dy == -1)){
+				equiPol.addPoint(pol.xpoints[i],  pol.ypoints[nextPixel]);
+			}
+		}
+		return equiPol;
 	}
 	
 	// Es ist nur für Zeitmesszwecke da	
