@@ -47,6 +47,7 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 	@Override
 	public int setup(String arg, ImagePlus imp) {
 		//imp = ensureCorrectLUT(imp);
+		shapeSmoothingUtil = new ShapeSmoothingUtil();
 		invertedLut = imp.isInvertedLut();
 		if (imp == null || imp.getType() != ImagePlus.GRAY8) {
 			IJ.error("Only 8-Bit Grayscale Imags are supported");
@@ -70,7 +71,8 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 		int tempMaxNumOfFDs = 0;
 		
 		for (Blob blob : allBlobs) {
-			int numOfFDs = blob.getOuterContour().npoints;
+			
+			int numOfFDs = shapeSmoothingUtil.toEquidistantPolygon(blob.getOuterContour()).npoints;
 			if (numOfFDs < minNumOfFDs) {
 				minNumOfFDs = numOfFDs;
 			}
@@ -88,7 +90,7 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 	
 	@Override
 	public void run(ImageProcessor ip) {		
-		shapeSmoothingUtil = new ShapeSmoothingUtil();
+		
 		doFourierFilter(ip);
 	}
 	
