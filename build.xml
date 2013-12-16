@@ -2,7 +2,7 @@
     <description>
         Shape Smoothing Plugin Build File
     </description>
-  <property name="src" location="src" />
+  <property name="src" location="src/de/biomedical_imaging/ij/" />
   <property name="build" location="bin" />
   <property name="dist"  location="dist" />
   <property name="lib.dir"       value="lib"/>
@@ -17,12 +17,14 @@
  <target name="compress" depends="" description="generate the distribution">
  	<jar jarfile="Shape_Smoothing_.jar">
  		<fileset dir="." includes="plugins.config" />
-		<fileset dir="${build}" includes="**/*.*" />
+		<fileset dir="${build}" excludes="**/tests/**" includes="**/*.*" />
+ 		
  		<zipgroupfileset dir="${lib.dir}" includes="**/*.jar" />
  		<manifest>
  		 	 	      <attribute name="Built-By" value="${user.name}"/>
  		</manifest>
  	</jar>
     <copy file="Shape_Smoothing_.jar" toDir="${pluginsDir}" />
+
   </target>
 </project>

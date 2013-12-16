@@ -69,7 +69,7 @@ public class ShapeSmoothingUtil {
 			if(output){
 				double f0 = Math.sqrt(Math.pow(coef[2],2)+Math.pow(coef[3],2));
 				rt.incrementCounter();
-				rt.addValue("Blob Label", blob.getLabel());
+				rt.addValue("Blob Label", c);
 				for(int i = 0; i< coef.length-1; i=i+2){
 					
 					rt.showRowNumbers(false);
