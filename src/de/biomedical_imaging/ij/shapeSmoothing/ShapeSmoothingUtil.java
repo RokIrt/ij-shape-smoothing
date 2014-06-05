@@ -62,12 +62,19 @@ public class ShapeSmoothingUtil {
 		ip.fill();
 		ResultsTable rt = new ResultsTable();
 		rt.setPrecision(5);
+		
+		// Clean ROI Manager
+		Frame frame = WindowManager.getFrame("ROI Manager");
+		if (frame != null){
+			RoiManager roiManager = (RoiManager) frame;
+			roiManager.close();
+		}
 		int c = 1;
 		for (Blob blob: allBlobs) {
 			double[] coef;
 			coef = fourierEngine(blob.getOuterContour(), thresholdValue, thresholdIsPercentual, ip,output);
 			if(output){
-				double f0 = Math.sqrt(Math.pow(coef[2],2)+Math.pow(coef[3],2));
+				double f1 = Math.sqrt(Math.pow(coef[2],2)+Math.pow(coef[3],2));
 				rt.incrementCounter();
 				rt.addValue("Blob Label", c);
 				for(int i = 0; i< coef.length-1; i=i+2){
@@ -76,14 +83,13 @@ public class ShapeSmoothingUtil {
 					
 					//rt.addValue("R", coef[i]);
 				//	rt.addValue("I", coef[i+1]);
-					rt.addValue("|F" +i/2+ "|", Math.sqrt(Math.pow(coef[i],2)+Math.pow(coef[i+1],2))/f0);
+					rt.addValue("|F" +i/2+ "|", Math.sqrt(Math.pow(coef[i],2)+Math.pow(coef[i+1],2))/f1);
 				}
 				rt.show("Fourier Descriptors");
 			}
 			c++;
 		}
 		
-	
 	}
 	
 	public void setDrawOnlyContours(boolean b){
@@ -198,7 +204,7 @@ public class ShapeSmoothingUtil {
 				IJ.run("ROI Manager...");
 			frame = WindowManager.getFrame("ROI Manager");
 			RoiManager roiManager = (RoiManager) frame;
-			Roi roi = new PolygonRoi(poly,Roi.POLYGON);
+			Roi roi = new PolygonRoi(poly,Roi.TRACED_ROI);
 			roiManager.add(IJ.getImage(), roi,objectCounter);
 			objectCounter++;
 		}

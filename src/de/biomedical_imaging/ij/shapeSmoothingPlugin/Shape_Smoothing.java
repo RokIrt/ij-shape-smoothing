@@ -1,12 +1,14 @@
 package de.biomedical_imaging.ij.shapeSmoothingPlugin;
 
 import java.awt.AWTEvent;
+import java.awt.Frame;
 import java.awt.Scrollbar;
 import java.awt.TextField;
 import java.awt.Choice;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.WindowManager;
 import ij.blob.ManyBlobs;
 import ij.blob.Blob;
 import ij.gui.DialogListener;
@@ -17,7 +19,9 @@ import ij.gui.YesNoCancelDialog;
 import ij.plugin.filter.ExtendedPlugInFilter;
 import ij.plugin.filter.PlugInFilter;
 import ij.plugin.filter.PlugInFilterRunner;
+import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
+import ij.process.ImageStatistics;
 import de.biomedical_imaging.ij.shapeSmoothing.DialogCancelledException;
 import de.biomedical_imaging.ij.shapeSmoothing.ShapeSmoothingUtil;
 
@@ -39,6 +43,7 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 	private boolean drawOnlyContours;
 	private boolean blackBackground;
 	private boolean doOutputDescriptors = false;
+	String[] absRelChoices = {"Relative proportion of FDs","Absolute number of FDs"};
 	int maxNumOfFDs ;
 	int minNumOfFDs;
 	int numberOfBlobs;
@@ -53,10 +58,12 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 			IJ.error("Only 8-Bit Grayscale Imags are supported");
 			return DONE;
 		}
-		YesNoCancelDialog diag = new YesNoCancelDialog(ImageWindow.getFrames()[0], "Background", "Black background?");
-		blackBackground = diag.yesPressed();
+		//YesNoCancelDialog diag = new YesNoCancelDialog(ImageWindow.getFrames()[0], "Background", "Black background?");
+		ImageStatistics stats = imp.getStatistics();
+
+		blackBackground = (stats.histogram[0]>stats.histogram[255]); //diag.yesPressed();
 		//if(invertedLut) blackBackground = !blackBackground;
-	
+
 		
 		ManyBlobs allBlobs = new ManyBlobs(imp);
 		if(blackBackground){
@@ -90,7 +97,6 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 	
 	@Override
 	public void run(ImageProcessor ip) {		
-		
 		doFourierFilter(ip);
 	}
 	
@@ -102,13 +108,14 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 		gd.setOKLabel("Run");
 		gd.setCancelLabel("Cancel");
 		// gd.addMessage("There are " + numberOfBlobs + " objects (or contours) with " + minNumOfFDs + " to " + maxNumOfFDs + " Fourier Descriptors (FDs).");		
-		String[] items = {"Relative proportion of FDs","Absolute number of FDs"};
-		gd.addChoice("Keep (for each Blob):", items, items[0]);
+		gd.addChoice("Keep (for each blob):", absRelChoices, absRelChoices[0]);
 		gd.addSlider("Relative proportion FDs (%)", 0, 100, 2);
 		gd.addSlider("Absolute number FDs", 1, maxNumOfFDs, 2);
-		dialogItemChanged(gd, null);
+		//dialogItemChanged(gd, null);
 		gd.addCheckbox("Draw only contours", false);
 		gd.addCheckbox("Output Descriptors", false);
+
+		gd.addCheckbox("Black Background", blackBackground);
 		Scrollbar absScroll = (Scrollbar) gd.getSliders().get(1);
 		TextField absTextField = (TextField) gd.getNumericFields().get(1);
 		absScroll.setEnabled(false);
@@ -123,11 +130,11 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 		
 		thresholdValuePercentual = gd.getNextNumber();
 		thresholdValueAbsolute = (int) gd.getNextNumber();
-		modusChoice = (Choice) gd.getChoices().get(0);
-		doAbsoluteThreshold = (modusChoice.getSelectedItem()==items[1]);
+		String choice = gd.getNextChoice();
+		doAbsoluteThreshold = (choice.equals(absRelChoices[1]));
 		drawOnlyContours = gd.getNextBoolean();
 		doOutputDescriptors = gd.getNextBoolean();
-	//	blackBackground = gd.getNextBoolean();
+		blackBackground = gd.getNextBoolean();
 		previewing = false;
 		return IJ.setupDialog(imp, DOES_8G);
 	}
@@ -139,9 +146,10 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 		thresholdValuePercentual = geDi.getNextNumber();
 		thresholdValueAbsolute = (int) geDi.getNextNumber();
 		modusChoice = (Choice) geDi.getChoices().get(0);
-		doAbsoluteThreshold = (modusChoice.getSelectedItem()=="Absolute number of FDs");
+		doAbsoluteThreshold = (modusChoice.getSelectedItem()== absRelChoices[1]);
 		drawOnlyContours = geDi.getNextBoolean();
-		//blackBackground = geDi.getNextBoolean();
+		doOutputDescriptors = geDi.getNextBoolean();
+		blackBackground = geDi.getNextBoolean();
 
 		double actPercentValue = thresholdValuePercentual;
 		double actAbsoluteValue = thresholdValueAbsolute;
@@ -173,6 +181,7 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 		}
 		
 		// Kopplung der beiden Slider
+		/*
 		TextField percentTextField = (TextField) geDi.getNumericFields().get(0);			
 		Scrollbar percentSlider = (Scrollbar) geDi.getSliders().get(0);
 		
@@ -191,7 +200,7 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 			percentSlider.setValue(percent);
 			percentTextField.setText(Integer.toString(percent));
 		}
-
+		*/
 		
 		return true;
 	
