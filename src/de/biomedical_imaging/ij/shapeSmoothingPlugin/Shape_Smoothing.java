@@ -51,6 +51,7 @@ public class Shape_Smoothing implements ExtendedPlugInFilter, DialogListener {
 	boolean previewing = true;
 	@Override
 	public int setup(String arg, ImagePlus imp) {
+		
 		//imp = ensureCorrectLUT(imp);
 		shapeSmoothingUtil = new ShapeSmoothingUtil();
 		invertedLut = imp.isInvertedLut();
