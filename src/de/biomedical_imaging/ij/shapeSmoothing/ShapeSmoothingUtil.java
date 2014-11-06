@@ -73,7 +73,7 @@ public class ShapeSmoothingUtil {
 		for (Blob blob: allBlobs) {
 			double[] coef;
 			coef = fourierEngine(blob.getOuterContour(), thresholdValue, thresholdIsPercentual, ip,output);
-			if(output){
+			if(output && coef.length >= 4){
 				double f1 = Math.sqrt(Math.pow(coef[2],2)+Math.pow(coef[3],2));
 				rt.incrementCounter();
 				rt.addValue("Blob Label", c);
@@ -91,6 +91,8 @@ public class ShapeSmoothingUtil {
 		}
 		
 	}
+	
+
 	
 	public void setDrawOnlyContours(boolean b){
 		onlyContours = b;
